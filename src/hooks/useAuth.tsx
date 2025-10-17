@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 interface Profile {
   id: string;
   employee_code: string;
+  email: string | null;
   full_name: string | null;
   birth_date: string | null;
   phone: string | null;
@@ -19,7 +20,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signIn: (employeeCode: string, password: string) => Promise<{ error: any }>;
   signUp: (email: string, password: string, employeeCode: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -83,23 +84,58 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    
-    if (error) {
+  const signIn = async (employeeCode: string, password: string) => {
+    try {
+      // First, get the email from the employee code
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('employee_code', employeeCode)
+        .maybeSingle();
+
+      if (profileError) {
+        toast({
+          title: 'خطا در ورود',
+          description: 'مشکلی در برقراری ارتباط با سرور پیش آمد',
+          variant: 'destructive',
+        });
+        return { error: profileError };
+      }
+
+      if (!profileData || !profileData.email) {
+        toast({
+          title: 'خطا در ورود',
+          description: 'کد پرسنلی یافت نشد',
+          variant: 'destructive',
+        });
+        return { error: new Error('Employee code not found') };
+      }
+
+      // Now sign in with the email
+      const { error } = await supabase.auth.signInWithPassword({
+        email: profileData.email,
+        password,
+      });
+      
+      if (error) {
+        toast({
+          title: 'خطا در ورود',
+          description: error.message === 'Invalid login credentials' 
+            ? 'کد پرسنلی یا رمز عبور اشتباه است'
+            : error.message,
+          variant: 'destructive',
+        });
+      }
+      
+      return { error };
+    } catch (err) {
       toast({
         title: 'خطا در ورود',
-        description: error.message === 'Invalid login credentials' 
-          ? 'ایمیل یا رمز عبور اشتباه است'
-          : error.message,
+        description: 'مشکلی در ورود به سیستم پیش آمد',
         variant: 'destructive',
       });
+      return { error: err };
     }
-    
-    return { error };
   };
 
   const signUp = async (email: string, password: string, employeeCode: string) => {

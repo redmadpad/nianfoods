@@ -14,7 +14,7 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
 
   // Login state
-  const [loginEmail, setLoginEmail] = useState('');
+  const [loginEmployeeCode, setLoginEmployeeCode] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
 
   // Signup state
@@ -26,7 +26,7 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
     
-    const { error } = await signIn(loginEmail, loginPassword);
+    const { error } = await signIn(loginEmployeeCode, loginPassword);
     
     if (!error) {
       navigate('/');
@@ -70,15 +70,14 @@ const Auth = () => {
             <TabsContent value="login">
               <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="login-email">ایمیل</Label>
+                  <Label htmlFor="login-employee-code">کد پرسنلی</Label>
                   <Input
-                    id="login-email"
-                    type="email"
-                    placeholder="email@example.com"
-                    value={loginEmail}
-                    onChange={(e) => setLoginEmail(e.target.value)}
+                    id="login-employee-code"
+                    type="text"
+                    placeholder="کد پرسنلی خود را وارد کنید"
+                    value={loginEmployeeCode}
+                    onChange={(e) => setLoginEmployeeCode(e.target.value)}
                     required
-                    dir="ltr"
                   />
                 </div>
                 <div className="space-y-2">
