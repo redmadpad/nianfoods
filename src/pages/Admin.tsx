@@ -5,6 +5,10 @@ import Layout from '@/components/Layout';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, UtensilsCrossed, Settings, TrendingUp } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { UsersManagement } from '@/components/admin/UsersManagement';
+import { RestaurantsManagement } from '@/components/admin/RestaurantsManagement';
+import { MenuManagement } from '@/components/admin/MenuManagement';
+import { OrdersManagement } from '@/components/admin/OrdersManagement';
 
 const Admin = () => {
   const { user, profile, loading } = useAuth();
@@ -107,56 +111,32 @@ const Admin = () => {
 
           <TabsContent value="users" className="space-y-4">
             <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>کاربران سیستم</CardTitle>
-                <CardDescription>مدیریت کاربران و دسترسی‌ها</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  لیست کاربران به زودی در دسترس خواهد بود
-                </p>
+              <CardContent className="pt-6">
+                <UsersManagement />
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="restaurants" className="space-y-4">
             <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>رستوران‌ها</CardTitle>
-                <CardDescription>مدیریت رستوران‌ها و اطلاعات آن‌ها</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  لیست رستوران‌ها به زودی در دسترس خواهد بود
-                </p>
+              <CardContent className="pt-6">
+                <RestaurantsManagement />
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="menu" className="space-y-4">
             <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>منوی غذا</CardTitle>
-                <CardDescription>مدیریت آیتم‌های منو و قیمت‌ها</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  مدیریت منو به زودی در دسترس خواهد بود
-                </p>
+              <CardContent className="pt-6">
+                <MenuManagement />
               </CardContent>
             </Card>
           </TabsContent>
 
           <TabsContent value="orders" className="space-y-4">
             <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle>سفارش‌ها</CardTitle>
-                <CardDescription>مشاهده و مدیریت سفارش‌های کاربران</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground text-center py-8">
-                  لیست سفارش‌ها به زودی در دسترس خواهد بود
-                </p>
+              <CardContent className="pt-6">
+                <OrdersManagement />
               </CardContent>
             </Card>
           </TabsContent>
