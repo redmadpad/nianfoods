@@ -63,8 +63,8 @@ const Index = () => {
       const { data, error } = await supabase
         .from('settings')
         .select('key, value')
-        .eq('key', 'order_time_limit')
-        .single();
+        .eq('key', 'order_deadline_time')
+        .maybeSingle();
 
       if (error) throw error;
       if (data?.value) setOrderTimeLimit(data.value as string);

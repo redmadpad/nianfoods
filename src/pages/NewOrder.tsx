@@ -304,14 +304,17 @@ const NewOrder = () => {
 
         const { error: orderError } = await supabase
           .from('orders')
-          .update({ total_amount: totalAmount })
+          .update({ 
+            total_amount: totalAmount,
+            status: 'confirmed'
+          })
           .eq('id', orderId);
 
         if (orderError) throw orderError;
 
         toast.success('تغییرات سفارش با موفقیت ذخیره شد');
       } else {
-        // Create new order
+        // Create new order with pending status first
         const { data: newOrder, error: orderError } = await supabase
           .from('orders')
           .insert([{
@@ -319,7 +322,7 @@ const NewOrder = () => {
             order_date: currentDate,
             order_time: currentTimeStr,
             total_amount: totalAmount,
-            status: 'confirmed',
+            status: 'pending',
             created_by: user?.id,
           }])
           .select()
@@ -327,6 +330,7 @@ const NewOrder = () => {
 
         if (orderError) throw orderError;
 
+        // Insert order items while order is pending
         const { error: itemsError } = await supabase
           .from('order_items')
           .insert(
@@ -340,6 +344,14 @@ const NewOrder = () => {
           );
 
         if (itemsError) throw itemsError;
+
+        // Now confirm the order
+        const { error: confirmError } = await supabase
+          .from('orders')
+          .update({ status: 'confirmed' })
+          .eq('id', newOrder.id);
+
+        if (confirmError) throw confirmError;
 
         toast.success('سفارش شما با موفقیت ثبت شد');
       }
