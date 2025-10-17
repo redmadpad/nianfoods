@@ -18,6 +18,13 @@ interface MenuItem {
   name: string;
   category: string;
   price?: number;
+  restaurant_id: string;
+  restaurant_name?: string;
+}
+
+interface Restaurant {
+  id: string;
+  name: string;
 }
 
 interface OrderItem {
@@ -44,6 +51,7 @@ const categoryNames = {
 const NewOrder = () => {
   const { user, profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [orderItems, setOrderItems] = useState<OrderItem[]>([]);
   const [selectedMenuItem, setSelectedMenuItem] = useState('');
@@ -60,7 +68,7 @@ const NewOrder = () => {
   useEffect(() => {
     if (user) {
       fetchSettings();
-      fetchTodayMenu();
+      fetchRestaurantsAndMenu();
     }
   }, [user]);
 
@@ -87,33 +95,30 @@ const NewOrder = () => {
     }
   };
 
-  const fetchTodayMenu = async () => {
+  const fetchRestaurantsAndMenu = async () => {
     try {
-      const today = new Date();
-      const dayOfWeek = today.getDay();
+      // Fetch active restaurants
+      const { data: restaurantsData, error: restaurantsError } = await supabase
+        .from('restaurants')
+        .select('id, name')
+        .eq('is_active', true)
+        .order('name');
 
-      // Get week start date (last Sunday)
-      const weekStart = new Date(today);
-      weekStart.setDate(today.getDate() - dayOfWeek);
-      const weekStartStr = weekStart.toISOString().split('T')[0];
+      if (restaurantsError) throw restaurantsError;
+      setRestaurants(restaurantsData || []);
 
-      // Fetch today's menu from weekly plan
-      const { data: weeklyPlan, error: planError } = await supabase
-        .from('weekly_meal_plans')
-        .select(`
-          menu_item_id,
-          menu_items (
-            id,
-            name,
-            category
-          )
-        `)
-        .eq('week_start_date', weekStartStr)
-        .eq('day_of_week', dayOfWeek);
+      // Fetch active menu items
+      const { data: menuData, error: menuError } = await supabase
+        .from('menu_items')
+        .select('id, name, category, restaurant_id')
+        .eq('is_active', true)
+        .order('restaurant_id')
+        .order('category')
+        .order('name');
 
-      if (planError) throw planError;
+      if (menuError) throw menuError;
 
-      const menuItemIds = weeklyPlan?.map(p => p.menu_item_id) || [];
+      const menuItemIds = menuData?.map(m => m.id) || [];
 
       // Fetch prices for menu items
       const { data: prices, error: priceError } = await supabase
@@ -133,16 +138,22 @@ const NewOrder = () => {
         }
       });
 
-      const items: MenuItem[] = weeklyPlan?.map(p => ({
-        id: p.menu_item_id,
-        name: (p.menu_items as any).name,
-        category: (p.menu_items as any).category,
-        price: priceMap.get(p.menu_item_id)
-      })) || [];
+      // Add restaurant names and prices to menu items
+      const items: MenuItem[] = menuData?.map(m => {
+        const restaurant = restaurantsData?.find(r => r.id === m.restaurant_id);
+        return {
+          id: m.id,
+          name: m.name,
+          category: m.category,
+          restaurant_id: m.restaurant_id,
+          restaurant_name: restaurant?.name,
+          price: priceMap.get(m.id)
+        };
+      }) || [];
 
       setMenuItems(items);
     } catch (error: any) {
-      toast.error('خطا در بارگذاری منوی امروز');
+      toast.error('خطا در بارگذاری منو');
       console.error(error);
     } finally {
       setLoading(false);
@@ -316,24 +327,39 @@ const NewOrder = () => {
                       <SelectValue placeholder="انتخاب آیتم" />
                     </SelectTrigger>
                     <SelectContent>
-                      {Object.entries(
-                        menuItems.reduce((acc, item) => {
+                      {restaurants.map((restaurant) => {
+                        const restaurantItems = menuItems.filter(
+                          item => item.restaurant_id === restaurant.id
+                        );
+                        
+                        if (restaurantItems.length === 0) return null;
+
+                        const itemsByCategory = restaurantItems.reduce((acc, item) => {
                           if (!acc[item.category]) acc[item.category] = [];
                           acc[item.category].push(item);
                           return acc;
-                        }, {} as Record<string, MenuItem[]>)
-                      ).map(([category, items]) => (
-                        <React.Fragment key={category}>
-                          <SelectItem value={`cat-${category}`} disabled>
-                            {categoryNames[category as keyof typeof categoryNames]}
-                          </SelectItem>
-                          {items.map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
-                              &nbsp;&nbsp;{item.name} - {item.price?.toLocaleString()} تومان
+                        }, {} as Record<string, MenuItem[]>);
+
+                        return (
+                          <React.Fragment key={restaurant.id}>
+                            <SelectItem value={`rest-${restaurant.id}`} disabled className="font-bold">
+                              🏪 {restaurant.name}
                             </SelectItem>
-                          ))}
-                        </React.Fragment>
-                      ))}
+                            {Object.entries(itemsByCategory).map(([category, items]) => (
+                              <React.Fragment key={`${restaurant.id}-${category}`}>
+                                <SelectItem value={`cat-${restaurant.id}-${category}`} disabled className="pr-4">
+                                  📁 {categoryNames[category as keyof typeof categoryNames]}
+                                </SelectItem>
+                                {items.map((item) => (
+                                  <SelectItem key={item.id} value={item.id} className="pr-8">
+                                    {item.name} - {item.price?.toLocaleString() || 0} تومان
+                                  </SelectItem>
+                                ))}
+                              </React.Fragment>
+                            ))}
+                          </React.Fragment>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
                 </div>

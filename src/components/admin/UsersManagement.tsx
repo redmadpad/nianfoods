@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { toast } from 'sonner';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
 import { z } from 'zod';
+import { Switch } from '@/components/ui/switch';
 
 interface Profile {
   id: string;
@@ -131,21 +132,19 @@ export const UsersManagement = () => {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('آیا از حذف این کاربر اطمینان دارید؟')) return;
-
+  const handleToggleActive = async (id: string, currentStatus: boolean) => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ is_active: false })
+        .update({ is_active: !currentStatus })
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('کاربر غیرفعال شد');
+      toast.success(currentStatus ? 'کاربر غیرفعال شد' : 'کاربر فعال شد');
       fetchUsers();
     } catch (error) {
-      console.error('Error deleting user:', error);
-      toast.error('خطا در حذف کاربر');
+      console.error('Error toggling user status:', error);
+      toast.error('خطا در تغییر وضعیت کاربر');
     }
   };
 
@@ -224,12 +223,11 @@ export const UsersManagement = () => {
                       {user.role === 'admin' ? 'مدیر' : user.role === 'operator' ? 'اپراتور' : 'کارمند'}
                     </span>
                   </TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded text-xs ${
-                      user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {user.is_active ? 'فعال' : 'غیرفعال'}
-                    </span>
+                   <TableCell>
+                    <Switch
+                      checked={user.is_active}
+                      onCheckedChange={() => handleToggleActive(user.id, user.is_active)}
+                    />
                   </TableCell>
                   <TableCell className="text-left">
                     <div className="flex gap-2 justify-end">
@@ -240,15 +238,6 @@ export const UsersManagement = () => {
                       >
                         <Pencil className="h-4 w-4" />
                       </Button>
-                      {user.is_active && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(user.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
                     </div>
                   </TableCell>
                 </TableRow>

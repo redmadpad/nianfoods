@@ -101,7 +101,7 @@ const Index = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Button className="w-full md:w-auto shadow-orange">
+            <Button className="w-full md:w-auto shadow-orange" onClick={() => navigate('/new-order')}>
               <UtensilsCrossed className="ml-2 h-4 w-4" />
               ثبت سفارش جدید
             </Button>
