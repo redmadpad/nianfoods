@@ -185,7 +185,10 @@ const Index = () => {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="shadow-card hover:shadow-orange transition-smooth cursor-pointer" onClick={() => navigate('/new-order')}>
+          <Card 
+            className="shadow-card hover:shadow-orange transition-smooth cursor-pointer" 
+            onClick={() => navigate(todayOrder ? `/new-order?orderId=${todayOrder.id}` : '/new-order')}
+          >
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">سفارش امروز</CardTitle>
               <UtensilsCrossed className="h-4 w-4 text-primary" />
@@ -195,7 +198,7 @@ const Index = () => {
                 {todayOrder ? `${todayOrder.total_amount.toLocaleString()} تومان` : 'ثبت نشده'}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {todayOrder ? `${todayOrder.order_items?.length || 0} آیتم` : 'برای ثبت سفارش کلیک کنید'}
+                {todayOrder ? `${todayOrder.order_items?.length || 0} آیتم - برای ویرایش کلیک کنید` : 'برای ثبت سفارش کلیک کنید'}
               </p>
             </CardContent>
           </Card>
@@ -249,12 +252,14 @@ const Index = () => {
                   <CardDescription>وضعیت: {todayOrder.status === 'pending' ? 'در انتظار تایید' : 'تایید شده'}</CardDescription>
                 </div>
                 <div className="flex gap-2">
-                  {todayOrder.status === 'pending' && (
-                    <Button variant="outline" size="sm" onClick={() => navigate('/new-order')}>
-                      <Edit className="ml-2 h-4 w-4" />
-                      ویرایش
-                    </Button>
-                  )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/new-order?orderId=${todayOrder.id}`)}
+                  >
+                    <Edit className="ml-2 h-4 w-4" />
+                    ویرایش سفارش
+                  </Button>
                   <Button variant="destructive" size="sm" onClick={handleDeleteOrder}>
                     <Trash2 className="ml-2 h-4 w-4" />
                     حذف

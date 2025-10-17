@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { toast } from 'sonner';
 import { formatJalaliDate } from '@/lib/date-utils';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Pencil } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface Order {
   id: string;
@@ -21,16 +22,9 @@ interface Order {
   } | null;
 }
 
-const statusOptions = [
-  { value: 'pending', label: 'در انتظار تایید', color: 'bg-yellow-100 text-yellow-800' },
-  { value: 'confirmed', label: 'تایید شده', color: 'bg-blue-100 text-blue-800' },
-  { value: 'preparing', label: 'در حال آماده‌سازی', color: 'bg-purple-100 text-purple-800' },
-  { value: 'ready', label: 'آماده تحویل', color: 'bg-green-100 text-green-800' },
-  { value: 'delivered', label: 'تحویل داده شده', color: 'bg-gray-100 text-gray-800' },
-  { value: 'cancelled', label: 'لغو شده', color: 'bg-red-100 text-red-800' },
-];
 
 export const OrdersManagement = () => {
+  const navigate = useNavigate();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -76,21 +70,6 @@ export const OrdersManagement = () => {
     }
   };
 
-  const handleStatusChange = async (orderId: string, newStatus: string) => {
-    try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: newStatus as any })
-        .eq('id', orderId);
-
-      if (error) throw error;
-      toast.success('وضعیت سفارش به‌روزرسانی شد');
-      fetchOrders();
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      toast.error('خطا در به‌روزرسانی وضعیت');
-    }
-  };
 
   const handleDeleteOrder = async (orderId: string) => {
     if (!confirm('آیا از حذف این سفارش اطمینان دارید؟')) return;
@@ -120,9 +99,6 @@ export const OrdersManagement = () => {
     }
   };
 
-  const getStatusInfo = (status: string) => {
-    return statusOptions.find(s => s.value === status) || statusOptions[0];
-  };
 
   if (loading) {
     return <div className="text-center py-8">در حال بارگذاری...</div>;
@@ -142,7 +118,6 @@ export const OrdersManagement = () => {
               <TableHead>تاریخ</TableHead>
               <TableHead>ساعت</TableHead>
               <TableHead>مبلغ</TableHead>
-              <TableHead>وضعیت</TableHead>
               <TableHead>یادداشت</TableHead>
               <TableHead className="text-left">عملیات</TableHead>
             </TableRow>
@@ -150,13 +125,12 @@ export const OrdersManagement = () => {
           <TableBody>
             {orders.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   سفارشی یافت نشد
                 </TableCell>
               </TableRow>
             ) : (
               orders.map((order) => {
-                const statusInfo = getStatusInfo(order.status);
                 const profile = order.profiles;
                 
                 return (
@@ -177,38 +151,25 @@ export const OrdersManagement = () => {
                     <TableCell>{order.order_time}</TableCell>
                     <TableCell>{order.total_amount.toLocaleString()} تومان</TableCell>
                     <TableCell>
-                      <span className={`px-2 py-1 rounded text-xs ${statusInfo.color}`}>
-                        {statusInfo.label}
-                      </span>
-                    </TableCell>
-                    <TableCell>
                       <div className="max-w-[200px] truncate">
                         {order.notes || '-'}
                       </div>
                     </TableCell>
                     <TableCell className="text-left">
-                      <div className="flex gap-2">
-                        <Select
-                          value={order.status}
-                          onValueChange={(value) => handleStatusChange(order.id, value)}
-                        >
-                          <SelectTrigger className="w-[180px]">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {statusOptions.map((status) => (
-                              <SelectItem key={status.value} value={status.value}>
-                                {status.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                      <div className="flex gap-2 justify-end">
                         <Button
-                          variant="destructive"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => navigate(`/new-order?orderId=${order.id}`)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
                           size="sm"
                           onClick={() => handleDeleteOrder(order.id)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
                     </TableCell>
