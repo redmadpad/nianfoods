@@ -10,6 +10,7 @@ import { RestaurantsManagement } from '@/components/admin/RestaurantsManagement'
 import { MenuManagement } from '@/components/admin/MenuManagement';
 import { OrdersManagement } from '@/components/admin/OrdersManagement';
 import { SettingsManagement } from '@/components/admin/SettingsManagement';
+import { WeeklyMenuManagement } from '@/components/admin/WeeklyMenuManagement';
 
 const Admin = () => {
   const { user, profile, loading } = useAuth();
@@ -107,6 +108,7 @@ const Admin = () => {
             <TabsTrigger value="users">مدیریت کاربران</TabsTrigger>
             <TabsTrigger value="restaurants">مدیریت رستوران‌ها</TabsTrigger>
             <TabsTrigger value="menu">مدیریت منو</TabsTrigger>
+            <TabsTrigger value="weekly">برنامه هفتگی</TabsTrigger>
             <TabsTrigger value="orders">سفارش‌ها</TabsTrigger>
             <TabsTrigger value="settings">تنظیمات</TabsTrigger>
           </TabsList>
@@ -131,6 +133,14 @@ const Admin = () => {
             <Card className="shadow-card">
               <CardContent className="pt-6">
                 <MenuManagement />
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="weekly" className="space-y-4">
+            <Card className="shadow-card">
+              <CardContent className="pt-6">
+                <WeeklyMenuManagement />
               </CardContent>
             </Card>
           </TabsContent>

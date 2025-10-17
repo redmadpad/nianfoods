@@ -41,6 +41,15 @@ const Layout = ({ children }: LayoutProps) => {
                 <Home className="ml-2 h-4 w-4" />
                 داشبورد
               </Button>
+
+              <Button
+                variant={isActive('/new-order') ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => navigate('/new-order')}
+              >
+                <UtensilsCrossed className="ml-2 h-4 w-4" />
+                ثبت سفارش جدید
+              </Button>
               
               {profile?.role === 'admin' && (
                 <Button
