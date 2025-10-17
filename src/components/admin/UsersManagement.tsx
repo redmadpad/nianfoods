@@ -4,10 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { z } from 'zod';
 
 interface Profile {
   id: string;
@@ -29,7 +30,16 @@ export const UsersManagement = () => {
     full_name: '',
     email: '',
     phone: '',
+    password: '',
     role: 'employee' as 'employee' | 'operator' | 'admin',
+  });
+  const [isCreating, setIsCreating] = useState(false);
+
+  const createUserSchema = z.object({
+    employee_code: z.string().trim().min(1, 'کد پرسنلی الزامی است').max(50, 'کد پرسنلی باید کمتر از 50 کاراکتر باشد'),
+    password: z.string().min(6, 'رمز عبور باید حداقل 6 کاراکتر باشد'),
+    full_name: z.string().trim().max(100, 'نام باید کمتر از 100 کاراکتر باشد').optional(),
+    phone: z.string().trim().max(20, 'شماره تماس باید کمتر از 20 کاراکتر باشد').optional(),
   });
 
   useEffect(() => {
@@ -55,31 +65,69 @@ export const UsersManagement = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsCreating(true);
     
     try {
       if (editingUser) {
         const { error } = await supabase
           .from('profiles')
           .update({
-            full_name: formData.full_name,
-            phone: formData.phone,
+            full_name: formData.full_name || null,
+            phone: formData.phone || null,
           })
           .eq('id', editingUser.id);
 
         if (error) throw error;
         toast.success('کاربر با موفقیت به‌روزرسانی شد');
       } else {
-        // For creating new users, they need to sign up through auth
-        toast.error('برای ایجاد کاربر جدید، باید از طریق صفحه ثبت‌نام اقدام شود');
-        return;
+        // Validate form data
+        const validation = createUserSchema.safeParse({
+          employee_code: formData.employee_code,
+          password: formData.password,
+          full_name: formData.full_name || undefined,
+          phone: formData.phone || undefined,
+        });
+
+        if (!validation.success) {
+          const firstError = validation.error.errors[0];
+          toast.error(firstError.message);
+          setIsCreating(false);
+          return;
+        }
+
+        // Get current session token
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          toast.error('لطفاً ابتدا وارد شوید');
+          setIsCreating(false);
+          return;
+        }
+
+        // Call edge function to create user
+        const { data, error } = await supabase.functions.invoke('create-user', {
+          body: {
+            employee_code: formData.employee_code.trim(),
+            password: formData.password,
+            full_name: formData.full_name.trim() || null,
+            phone: formData.phone.trim() || null,
+            role: formData.role,
+          },
+        });
+
+        if (error) throw error;
+        if (!data.success) throw new Error(data.error);
+
+        toast.success('کاربر با موفقیت ایجاد شد');
       }
 
       setDialogOpen(false);
       resetForm();
       fetchUsers();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving user:', error);
-      toast.error('خطا در ذخیره اطلاعات کاربر');
+      toast.error(error.message || 'خطا در ذخیره اطلاعات کاربر');
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -108,6 +156,7 @@ export const UsersManagement = () => {
       full_name: user.full_name || '',
       email: user.email || '',
       phone: user.phone || '',
+      password: '',
       role: user.role,
     });
     setDialogOpen(true);
@@ -120,6 +169,7 @@ export const UsersManagement = () => {
       full_name: '',
       email: '',
       phone: '',
+      password: '',
       role: 'employee',
     });
   };
@@ -132,6 +182,10 @@ export const UsersManagement = () => {
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h3 className="text-lg font-medium">لیست کاربران</h3>
+        <Button onClick={() => { resetForm(); setDialogOpen(true); }}>
+          <Plus className="ml-2 h-4 w-4" />
+          افزودن کاربر
+        </Button>
       </div>
 
       <div className="border rounded-lg">
@@ -214,19 +268,37 @@ export const UsersManagement = () => {
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="employee_code">کد پرسنلی</Label>
+              <Label htmlFor="employee_code">کد پرسنلی *</Label>
               <Input
                 id="employee_code"
                 value={formData.employee_code}
-                disabled
+                onChange={(e) => setFormData({ ...formData, employee_code: e.target.value })}
+                disabled={!!editingUser}
+                required={!editingUser}
+                maxLength={50}
               />
             </div>
+            {!editingUser && (
+              <div className="space-y-2">
+                <Label htmlFor="password">رمز عبور *</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
+                  minLength={6}
+                />
+                <p className="text-xs text-muted-foreground">حداقل 6 کاراکتر</p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="full_name">نام کامل</Label>
               <Input
                 id="full_name"
                 value={formData.full_name}
                 onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                maxLength={100}
               />
             </div>
             <div className="space-y-2">
@@ -235,13 +307,41 @@ export const UsersManagement = () => {
                 id="phone"
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                maxLength={20}
               />
             </div>
+            {!editingUser && (
+              <div className="space-y-2">
+                <Label htmlFor="role">نقش</Label>
+                <Select
+                  value={formData.role}
+                  onValueChange={(value: 'employee' | 'operator' | 'admin') => 
+                    setFormData({ ...formData, role: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="employee">کارمند</SelectItem>
+                    <SelectItem value="operator">اپراتور</SelectItem>
+                    <SelectItem value="admin">مدیر</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="flex gap-2 justify-end">
-              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={() => setDialogOpen(false)}
+                disabled={isCreating}
+              >
                 انصراف
               </Button>
-              <Button type="submit">ذخیره</Button>
+              <Button type="submit" disabled={isCreating}>
+                {isCreating ? 'در حال ذخیره...' : 'ذخیره'}
+              </Button>
             </div>
           </form>
         </DialogContent>
