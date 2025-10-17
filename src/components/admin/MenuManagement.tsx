@@ -8,7 +8,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2, Power } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 
 interface MenuItem {
   id: string;
@@ -155,6 +156,22 @@ export const MenuManagement = () => {
     }
   };
 
+  const handleToggleActive = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('menu_items')
+        .update({ is_active: !currentStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+      toast.success(currentStatus ? 'آیتم غیرفعال شد' : 'آیتم فعال شد');
+      fetchData();
+    } catch (error) {
+      console.error('Error toggling menu item:', error);
+      toast.error('خطا در تغییر وضعیت آیتم');
+    }
+  };
+
   const handleDelete = async (id: string) => {
     if (!confirm('آیا از حذف این آیتم اطمینان دارید؟')) return;
 
@@ -223,13 +240,14 @@ export const MenuManagement = () => {
               <TableHead>تاریخ شروع</TableHead>
               <TableHead>تاریخ پایان</TableHead>
               <TableHead>وضعیت</TableHead>
+              <TableHead>فعال/غیرفعال</TableHead>
               <TableHead className="text-left">عملیات</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {menuItems.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground">
+                <TableCell colSpan={7} className="text-center text-muted-foreground">
                   آیتمی یافت نشد
                 </TableCell>
               </TableRow>
@@ -248,6 +266,12 @@ export const MenuManagement = () => {
                     }`}>
                       {item.is_active ? 'فعال' : 'غیرفعال'}
                     </span>
+                  </TableCell>
+                  <TableCell>
+                    <Switch
+                      checked={item.is_active}
+                      onCheckedChange={() => handleToggleActive(item.id, item.is_active)}
+                    />
                   </TableCell>
                   <TableCell className="text-left">
                     <div className="flex gap-2 justify-end">
@@ -358,22 +382,24 @@ export const MenuManagement = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="active_from">تاریخ شروع *</Label>
+                <Label htmlFor="active_from">تاریخ شروع (مثال: 1403/09/15) *</Label>
                 <Input
                   id="active_from"
-                  type="date"
+                  type="text"
                   value={formData.active_from}
                   onChange={(e) => setFormData({ ...formData, active_from: e.target.value })}
+                  placeholder="1403/09/15"
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="active_until">تاریخ پایان</Label>
+                <Label htmlFor="active_until">تاریخ پایان (مثال: 1403/09/20)</Label>
                 <Input
                   id="active_until"
-                  type="date"
+                  type="text"
                   value={formData.active_until}
                   onChange={(e) => setFormData({ ...formData, active_until: e.target.value })}
+                  placeholder="1403/09/20"
                 />
               </div>
             </div>

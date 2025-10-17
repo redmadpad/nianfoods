@@ -9,6 +9,7 @@ import { UsersManagement } from '@/components/admin/UsersManagement';
 import { RestaurantsManagement } from '@/components/admin/RestaurantsManagement';
 import { MenuManagement } from '@/components/admin/MenuManagement';
 import { OrdersManagement } from '@/components/admin/OrdersManagement';
+import { SettingsManagement } from '@/components/admin/SettingsManagement';
 
 const Admin = () => {
   const { user, profile, loading } = useAuth();
@@ -107,6 +108,7 @@ const Admin = () => {
             <TabsTrigger value="restaurants">مدیریت رستوران‌ها</TabsTrigger>
             <TabsTrigger value="menu">مدیریت منو</TabsTrigger>
             <TabsTrigger value="orders">سفارش‌ها</TabsTrigger>
+            <TabsTrigger value="settings">تنظیمات</TabsTrigger>
           </TabsList>
 
           <TabsContent value="users" className="space-y-4">
@@ -139,6 +141,10 @@ const Admin = () => {
                 <OrdersManagement />
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="settings" className="space-y-4">
+            <SettingsManagement />
           </TabsContent>
         </Tabs>
       </div>
