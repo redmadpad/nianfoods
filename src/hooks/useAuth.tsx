@@ -86,34 +86,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signIn = async (employeeCode: string, password: string) => {
     try {
-      // First, get the email from the employee code
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('employee_code', employeeCode)
-        .maybeSingle();
-
-      if (profileError) {
-        toast({
-          title: 'خطا در ورود',
-          description: 'مشکلی در برقراری ارتباط با سرور پیش آمد',
-          variant: 'destructive',
-        });
-        return { error: profileError };
-      }
-
-      if (!profileData || !profileData.email) {
-        toast({
-          title: 'خطا در ورود',
-          description: 'کد پرسنلی یافت نشد',
-          variant: 'destructive',
-        });
-        return { error: new Error('Employee code not found') };
-      }
-
-      // Now sign in with the email
+      // Convert employee code to internal email format
+      const internalEmail = `${employeeCode}@dailyfoods.local`;
+      
+      // Sign in with the internal email
       const { error } = await supabase.auth.signInWithPassword({
-        email: profileData.email,
+        email: internalEmail,
         password,
       });
       
