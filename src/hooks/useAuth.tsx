@@ -153,12 +153,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     });
     
     if (error) {
+      let errorMessage = error.message;
+      
+      if (error.message === 'User already registered') {
+        errorMessage = 'این ایمیل قبلاً ثبت شده است';
+      } else if (error.message.includes('rate_limit') || error.status === 429) {
+        errorMessage = 'لطفاً چند ثانیه صبر کنید و دوباره امتحان کنید';
+      } else if (error.message.includes('Email not confirmed')) {
+        errorMessage = 'لطفاً ایمیل خود را تأیید کنید';
+      }
+      
       toast({
         title: 'خطا در ثبت‌نام',
-        description: error.message === 'User already registered'
-          ? 'این ایمیل قبلاً ثبت شده است'
-          : error.message,
+        description: errorMessage,
         variant: 'destructive',
+      });
+    } else {
+      toast({
+        title: 'ثبت‌نام موفق',
+        description: 'لطفاً ایمیل خود را برای تأیید حساب کاربری چک کنید',
       });
     }
     
