@@ -415,6 +415,10 @@ export type Database = {
         Args: { _user_id: string }
         Returns: Database["public"]["Enums"]["user_role"]
       }
+      update_order_with_items: {
+        Args: { _items: Json; _order_id: string; _total_amount: number }
+        Returns: undefined
+      }
     }
     Enums: {
       menu_category: "main" | "dessert" | "drink" | "side"

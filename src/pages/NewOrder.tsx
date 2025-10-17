@@ -280,47 +280,19 @@ const NewOrder = () => {
       const currentTimeStr = now.toTimeString().split(' ')[0];
 
       if (orderId) {
-        // Update existing order - first set to pending to allow order_items modifications
-        const { error: pendingError } = await supabase
-          .from('orders')
-          .update({ status: 'pending' })
-          .eq('id', orderId);
+        // Update existing order using RPC function for atomic transaction
+        const { error: updateError } = await supabase.rpc('update_order_with_items', {
+          _order_id: orderId,
+          _items: selectedItems.map(item => ({
+            menu_item_id: item.id,
+            quantity: item.quantity,
+            unit_price: item.unit_price,
+            subtotal: item.subtotal,
+          })),
+          _total_amount: totalAmount,
+        });
 
-        if (pendingError) throw pendingError;
-
-        // Delete old order items
-        const { error: deleteError } = await supabase
-          .from('order_items')
-          .delete()
-          .eq('order_id', orderId);
-
-        if (deleteError) throw deleteError;
-
-        // Insert new order items
-        const { error: itemsError } = await supabase
-          .from('order_items')
-          .insert(
-            selectedItems.map(item => ({
-              order_id: orderId,
-              menu_item_id: item.id,
-              quantity: item.quantity,
-              unit_price: item.unit_price,
-              subtotal: item.subtotal,
-            }))
-          );
-
-        if (itemsError) throw itemsError;
-
-        // Update total and confirm the order
-        const { error: orderError } = await supabase
-          .from('orders')
-          .update({ 
-            total_amount: totalAmount,
-            status: 'confirmed'
-          })
-          .eq('id', orderId);
-
-        if (orderError) throw orderError;
+        if (updateError) throw updateError;
 
         toast.success('تغییرات سفارش با موفقیت ذخیره شد');
       } else {
