@@ -4,7 +4,8 @@ import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { format } from 'date-fns';
+import { formatJalaliDate } from '@/lib/date-utils';
+import { Trash2 } from 'lucide-react';
 
 interface Order {
   id: string;
@@ -91,6 +92,34 @@ export const OrdersManagement = () => {
     }
   };
 
+  const handleDeleteOrder = async (orderId: string) => {
+    if (!confirm('آیا از حذف این سفارش اطمینان دارید؟')) return;
+
+    try {
+      // Delete order items first
+      const { error: itemsError } = await supabase
+        .from('order_items')
+        .delete()
+        .eq('order_id', orderId);
+
+      if (itemsError) throw itemsError;
+
+      // Delete order
+      const { error: orderError } = await supabase
+        .from('orders')
+        .delete()
+        .eq('id', orderId);
+
+      if (orderError) throw orderError;
+
+      toast.success('سفارش حذف شد');
+      fetchOrders();
+    } catch (error) {
+      console.error('Error deleting order:', error);
+      toast.error('خطا در حذف سفارش');
+    }
+  };
+
   const getStatusInfo = (status: string) => {
     return statusOptions.find(s => s.value === status) || statusOptions[0];
   };
@@ -144,7 +173,7 @@ export const OrdersManagement = () => {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>{order.order_date}</TableCell>
+                    <TableCell>{formatJalaliDate(order.order_date)}</TableCell>
                     <TableCell>{order.order_time}</TableCell>
                     <TableCell>{order.total_amount.toLocaleString()} تومان</TableCell>
                     <TableCell>
@@ -158,21 +187,30 @@ export const OrdersManagement = () => {
                       </div>
                     </TableCell>
                     <TableCell className="text-left">
-                      <Select
-                        value={order.status}
-                        onValueChange={(value) => handleStatusChange(order.id, value)}
-                      >
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {statusOptions.map((status) => (
-                            <SelectItem key={status.value} value={status.value}>
-                              {status.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex gap-2">
+                        <Select
+                          value={order.status}
+                          onValueChange={(value) => handleStatusChange(order.id, value)}
+                        >
+                          <SelectTrigger className="w-[180px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {statusOptions.map((status) => (
+                              <SelectItem key={status.value} value={status.value}>
+                                {status.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => handleDeleteOrder(order.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );

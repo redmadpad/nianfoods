@@ -58,6 +58,7 @@ const NewOrder = () => {
   const [quantity, setQuantity] = useState(1);
   const [settings, setSettings] = useState<Settings>({});
   const [loading, setLoading] = useState(true);
+  const [existingOrderId, setExistingOrderId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -69,6 +70,7 @@ const NewOrder = () => {
     if (user) {
       fetchSettings();
       fetchRestaurantsAndMenu();
+      fetchTodayOrder();
     }
   }, [user]);
 
@@ -90,6 +92,54 @@ const NewOrder = () => {
       });
 
       setSettings(settingsObj);
+    } catch (error: any) {
+      console.error(error);
+    }
+  };
+
+  const fetchTodayOrder = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data: orders, error: orderError } = await supabase
+        .from('orders')
+        .select('id, total_amount, order_items(id, menu_item_id, quantity, unit_price, subtotal)')
+        .eq('user_id', user?.id)
+        .eq('order_date', today)
+        .eq('status', 'pending');
+
+      if (orderError) throw orderError;
+
+      if (orders && orders.length > 0) {
+        const order = orders[0];
+        setExistingOrderId(order.id);
+
+        // Fetch menu item details for order items
+        const menuItemIds = order.order_items?.map((item: any) => item.menu_item_id) || [];
+        
+        if (menuItemIds.length > 0) {
+          const { data: menuData, error: menuError } = await supabase
+            .from('menu_items')
+            .select('id, name, category')
+            .in('id', menuItemIds);
+
+          if (menuError) throw menuError;
+
+          const items: OrderItem[] = order.order_items?.map((item: any) => {
+            const menuItem = menuData?.find(m => m.id === item.menu_item_id);
+            return {
+              menu_item_id: item.menu_item_id,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              subtotal: item.subtotal,
+              name: menuItem?.name || '',
+              category: menuItem?.category || ''
+            };
+          }) || [];
+
+          setOrderItems(items);
+        }
+      }
     } catch (error: any) {
       console.error(error);
     }
@@ -173,7 +223,7 @@ const NewOrder = () => {
     return currentTotal + currentQuantity <= limit;
   };
 
-  const handleAddItem = () => {
+  const handleAddItem = async () => {
     if (!selectedMenuItem) {
       toast.error('لطفاً یک آیتم انتخاب کنید');
       return;
@@ -209,25 +259,94 @@ const NewOrder = () => {
         return;
       }
 
-      const updatedItems = [...orderItems];
-      updatedItems[existingItemIndex] = {
-        ...updatedItems[existingItemIndex],
-        quantity: newQuantity,
-        subtotal: newQuantity * menuItem.price
-      };
-      setOrderItems(updatedItems);
+      if (existingOrderId) {
+        await handleUpdateOrderItem(selectedMenuItem, newQuantity);
+      } else {
+        const updatedItems = [...orderItems];
+        updatedItems[existingItemIndex] = {
+          ...updatedItems[existingItemIndex],
+          quantity: newQuantity,
+          subtotal: newQuantity * menuItem.price
+        };
+        setOrderItems(updatedItems);
+      }
     } else {
-      setOrderItems([
-        ...orderItems,
-        {
-          menu_item_id: selectedMenuItem,
-          quantity,
-          unit_price: menuItem.price,
-          subtotal: quantity * menuItem.price,
-          name: menuItem.name,
-          category: menuItem.category
+      const newItem = {
+        menu_item_id: selectedMenuItem,
+        quantity,
+        unit_price: menuItem.price,
+        subtotal: quantity * menuItem.price,
+        name: menuItem.name,
+        category: menuItem.category
+      };
+
+      if (existingOrderId) {
+        // Add to existing order in database
+        try {
+          const now = new Date();
+          
+          if (!existingOrderId) {
+            // Create order first
+            const { data: order, error: orderError } = await supabase
+              .from('orders')
+              .insert({
+                user_id: user?.id,
+                order_date: now.toISOString().split('T')[0],
+                order_time: now.toTimeString().split(' ')[0],
+                total_amount: 0,
+                status: 'pending',
+                created_by: user?.id
+              })
+              .select()
+              .single();
+
+            if (orderError) throw orderError;
+            setExistingOrderId(order.id);
+            
+            // Insert new item
+            const { error: itemError } = await supabase
+              .from('order_items')
+              .insert({
+                order_id: order.id,
+                menu_item_id: newItem.menu_item_id,
+                quantity: newItem.quantity,
+                unit_price: newItem.unit_price,
+                subtotal: newItem.subtotal
+              });
+
+            if (itemError) throw itemError;
+          } else {
+            // Insert new item to existing order
+            const { error: itemError } = await supabase
+              .from('order_items')
+              .insert({
+                order_id: existingOrderId,
+                menu_item_id: newItem.menu_item_id,
+                quantity: newItem.quantity,
+                unit_price: newItem.unit_price,
+                subtotal: newItem.subtotal
+              });
+
+            if (itemError) throw itemError;
+
+            // Update total
+            const newTotal = [...orderItems, newItem].reduce((sum, item) => sum + item.subtotal, 0);
+            await supabase
+              .from('orders')
+              .update({ total_amount: newTotal })
+              .eq('id', existingOrderId);
+          }
+
+          setOrderItems([...orderItems, newItem]);
+        } catch (error: any) {
+          toast.error('خطا در افزودن آیتم');
+          console.error(error);
+          return;
         }
-      ]);
+      } else {
+        // Just add to state for new order
+        setOrderItems([...orderItems, newItem]);
+      }
     }
 
     setSelectedMenuItem('');
@@ -235,9 +354,77 @@ const NewOrder = () => {
     toast.success('آیتم به سفارش اضافه شد');
   };
 
-  const handleRemoveItem = (menuItemId: string) => {
-    setOrderItems(orderItems.filter(item => item.menu_item_id !== menuItemId));
-    toast.success('آیتم از سفارش حذف شد');
+  const handleRemoveItem = async (menuItemId: string) => {
+    if (existingOrderId) {
+      try {
+        // Delete from database
+        const { error } = await supabase
+          .from('order_items')
+          .delete()
+          .eq('order_id', existingOrderId)
+          .eq('menu_item_id', menuItemId);
+
+        if (error) throw error;
+
+        // Update total
+        const updatedItems = orderItems.filter(item => item.menu_item_id !== menuItemId);
+        const newTotal = updatedItems.reduce((sum, item) => sum + item.subtotal, 0);
+        
+        await supabase
+          .from('orders')
+          .update({ total_amount: newTotal })
+          .eq('id', existingOrderId);
+
+        setOrderItems(updatedItems);
+        toast.success('آیتم از سفارش حذف شد');
+      } catch (error: any) {
+        toast.error('خطا در حذف آیتم');
+        console.error(error);
+      }
+    } else {
+      setOrderItems(orderItems.filter(item => item.menu_item_id !== menuItemId));
+      toast.success('آیتم از سفارش حذف شد');
+    }
+  };
+
+  const handleUpdateOrderItem = async (menuItemId: string, newQuantity: number) => {
+    if (!existingOrderId) return;
+
+    const item = orderItems.find(i => i.menu_item_id === menuItemId);
+    if (!item) return;
+
+    try {
+      const newSubtotal = newQuantity * item.unit_price;
+
+      // Update in database
+      const { error } = await supabase
+        .from('order_items')
+        .update({ quantity: newQuantity, subtotal: newSubtotal })
+        .eq('order_id', existingOrderId)
+        .eq('menu_item_id', menuItemId);
+
+      if (error) throw error;
+
+      // Update total amount
+      const updatedItems = orderItems.map(i => 
+        i.menu_item_id === menuItemId 
+          ? { ...i, quantity: newQuantity, subtotal: newSubtotal }
+          : i
+      );
+      
+      const newTotal = updatedItems.reduce((sum, item) => sum + item.subtotal, 0);
+      
+      await supabase
+        .from('orders')
+        .update({ total_amount: newTotal })
+        .eq('id', existingOrderId);
+
+      setOrderItems(updatedItems);
+      toast.success('تعداد به‌روزرسانی شد');
+    } catch (error: any) {
+      toast.error('خطا در به‌روزرسانی');
+      console.error(error);
+    }
   };
 
   const handleSubmitOrder = async () => {
@@ -249,39 +436,56 @@ const NewOrder = () => {
     try {
       const totalAmount = orderItems.reduce((sum, item) => sum + item.subtotal, 0);
       const now = new Date();
+      const today = now.toISOString().split('T')[0];
 
-      // Create order
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          user_id: user?.id,
-          order_date: now.toISOString().split('T')[0],
-          order_time: now.toTimeString().split(' ')[0],
-          total_amount: totalAmount,
-          status: 'pending',
-          created_by: user?.id
-        })
-        .select()
-        .single();
+      if (existingOrderId) {
+        // Update existing order to confirmed
+        const { error: updateError } = await supabase
+          .from('orders')
+          .update({ 
+            status: 'confirmed',
+            total_amount: totalAmount
+          })
+          .eq('id', existingOrderId);
 
-      if (orderError) throw orderError;
+        if (updateError) throw updateError;
 
-      // Create order items
-      const { error: itemsError } = await supabase
-        .from('order_items')
-        .insert(
-          orderItems.map(item => ({
-            order_id: order.id,
-            menu_item_id: item.menu_item_id,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            subtotal: item.subtotal
-          }))
-        );
+        toast.success('سفارش با موفقیت ثبت شد');
+      } else {
+        // Create new order
+        const { data: order, error: orderError } = await supabase
+          .from('orders')
+          .insert({
+            user_id: user?.id,
+            order_date: today,
+            order_time: now.toTimeString().split(' ')[0],
+            total_amount: totalAmount,
+            status: 'confirmed',
+            created_by: user?.id
+          })
+          .select()
+          .single();
 
-      if (itemsError) throw itemsError;
+        if (orderError) throw orderError;
 
-      toast.success('سفارش با موفقیت ثبت شد');
+        // Create order items
+        const { error: itemsError } = await supabase
+          .from('order_items')
+          .insert(
+            orderItems.map(item => ({
+              order_id: order.id,
+              menu_item_id: item.menu_item_id,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              subtotal: item.subtotal
+            }))
+          );
+
+        if (itemsError) throw itemsError;
+
+        toast.success('سفارش با موفقیت ثبت شد');
+      }
+      
       navigate('/');
     } catch (error: any) {
       toast.error('خطا در ثبت سفارش');
@@ -316,7 +520,11 @@ const NewOrder = () => {
           <Card className="lg:col-span-2">
             <CardHeader>
               <CardTitle>آیتم‌های سفارش</CardTitle>
-              <CardDescription>آیتم‌های خود را از منوی امروز انتخاب کنید</CardDescription>
+              <CardDescription>
+                {existingOrderId 
+                  ? 'در حال ویرایش سفارش امروز - برای ثبت نهایی دکمه پایین را بزنید' 
+                  : 'آیتم‌های خود را از منوی امروز انتخاب کنید'}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 md:grid-cols-3">
@@ -450,7 +658,7 @@ const NewOrder = () => {
                 disabled={orderItems.length === 0}
               >
                 <ShoppingCart className="ml-2 h-5 w-5" />
-                ثبت سفارش
+                {existingOrderId ? 'ثبت نهایی سفارش' : 'ثبت سفارش'}
               </Button>
             </CardContent>
           </Card>
