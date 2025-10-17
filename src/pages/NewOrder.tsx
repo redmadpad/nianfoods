@@ -280,7 +280,15 @@ const NewOrder = () => {
       const currentTimeStr = now.toTimeString().split(' ')[0];
 
       if (orderId) {
-        // Update existing order
+        // Update existing order - first set to pending to allow order_items modifications
+        const { error: pendingError } = await supabase
+          .from('orders')
+          .update({ status: 'pending' })
+          .eq('id', orderId);
+
+        if (pendingError) throw pendingError;
+
+        // Delete old order items
         const { error: deleteError } = await supabase
           .from('order_items')
           .delete()
@@ -288,6 +296,7 @@ const NewOrder = () => {
 
         if (deleteError) throw deleteError;
 
+        // Insert new order items
         const { error: itemsError } = await supabase
           .from('order_items')
           .insert(
@@ -302,6 +311,7 @@ const NewOrder = () => {
 
         if (itemsError) throw itemsError;
 
+        // Update total and confirm the order
         const { error: orderError } = await supabase
           .from('orders')
           .update({ 
