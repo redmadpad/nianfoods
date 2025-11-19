@@ -11,7 +11,7 @@ interface Profile {
   birth_date: string | null;
   phone: string | null;
   address: string | null;
-  role: 'employee' | 'operator' | 'admin';
+  role?: 'employee' | 'operator' | 'admin'; // Role now fetched separately from user_roles
   is_active: boolean;
 }
 
@@ -37,14 +37,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const fetchProfile = async (userId: string) => {
     try {
-      const { data, error } = await supabase
+      // Fetch profile data
+      const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .single();
 
-      if (error) throw error;
-      setProfile(data);
+      if (profileError) throw profileError;
+
+      // Fetch role from user_roles table
+      const { data: roleData } = await supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      // Combine profile and role
+      setProfile({
+        ...profileData,
+        role: roleData?.role || 'employee'
+      });
     } catch (error) {
       console.error('Error fetching profile:', error);
     }
