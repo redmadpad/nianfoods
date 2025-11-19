@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Trash2, RotateCcw } from 'lucide-react';
 import { z } from 'zod';
 import { Switch } from '@/components/ui/switch';
 
@@ -148,6 +148,25 @@ export const UsersManagement = () => {
     }
   };
 
+  const handleResetPassword = async (userId: string) => {
+    if (!confirm('آیا مطمئن هستید که می‌خواهید رمز عبور این کاربر را به 123456 تنظیم کنید؟')) {
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-user-password', {
+        body: { userId }
+      });
+
+      if (error) throw error;
+      
+      toast.success('رمز عبور با موفقیت به 123456 تنظیم شد');
+    } catch (error) {
+      console.error('Error resetting password:', error);
+      toast.error('خطا در تنظیم مجدد رمز عبور');
+    }
+  };
+
   const openEditDialog = (user: Profile) => {
     setEditingUser(user);
     setFormData({
@@ -235,8 +254,17 @@ export const UsersManagement = () => {
                         variant="ghost"
                         size="sm"
                         onClick={() => openEditDialog(user)}
+                        title="ویرایش کاربر"
                       >
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleResetPassword(user.id)}
+                        title="ریست رمز عبور به 123456"
+                      >
+                        <RotateCcw className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
