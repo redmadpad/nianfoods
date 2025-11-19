@@ -17,7 +17,7 @@ interface Profile {
   full_name: string | null;
   email: string | null;
   phone: string | null;
-  role: 'employee' | 'operator' | 'admin';
+  role?: 'employee' | 'operator' | 'admin'; // Role now fetched separately from user_roles
   is_active: boolean;
 }
 
@@ -49,13 +49,29 @@ export const UsersManagement = () => {
 
   const fetchUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // Fetch profiles
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (profilesError) throw profilesError;
+
+      // Fetch roles for all users
+      const { data: rolesData } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+
+      // Create a map of user_id to role
+      const roleMap = new Map(rolesData?.map(r => [r.user_id, r.role]) || []);
+
+      // Combine profiles with roles
+      const usersWithRoles = profilesData?.map(profile => ({
+        ...profile,
+        role: roleMap.get(profile.id) || 'employee'
+      })) || [];
+
+      setUsers(usersWithRoles);
     } catch (error) {
       console.error('Error fetching users:', error);
       toast.error('خطا در دریافت لیست کاربران');

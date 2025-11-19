@@ -37,14 +37,15 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    // Check if user is admin
-    const { data: profile, error: profileError } = await supabaseAdmin
-      .from('profiles')
+    // Check if user is admin using secure user_roles table
+    const { data: roleCheck, error: roleError } = await supabaseAdmin
+      .from('user_roles')
       .select('role')
-      .eq('id', user.id)
-      .single();
+      .eq('user_id', user.id)
+      .eq('role', 'admin')
+      .maybeSingle();
 
-    if (profileError || profile?.role !== 'admin') {
+    if (roleError || !roleCheck) {
       throw new Error('User is not an admin');
     }
 
@@ -96,6 +97,19 @@ serve(async (req) => {
       if (updateError) {
         console.error('Error updating profile:', updateError);
       }
+    }
+
+    // Insert role into user_roles table
+    const { error: insertRoleError } = await supabaseAdmin
+      .from('user_roles')
+      .insert({
+        user_id: newUser.user.id,
+        role: role || 'employee'
+      });
+
+    if (insertRoleError) {
+      console.error('Error inserting role:', insertRoleError);
+      throw new Error('Failed to assign user role');
     }
 
     return new Response(
