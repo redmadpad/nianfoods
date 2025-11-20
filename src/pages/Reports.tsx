@@ -11,7 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import { formatJalaliDate, toGregorianDate, getCurrentJalaliDate } from "@/lib/date-utils";
-import { Loader2 } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
+import * as XLSX from 'xlsx';
 
 interface Order {
   id: string;
@@ -160,6 +161,51 @@ const Reports = () => {
 
   const totalAmount = orders.reduce((sum, order) => sum + Number(order.total_amount), 0);
 
+  const exportToExcel = () => {
+    const exportData = orders.map(order => ({
+      'تاریخ': formatJalaliDate(order.order_date),
+      'ساعت': order.order_time,
+      'کد پرسنلی': order.profiles?.employee_code || '-',
+      'نام کاربر': order.profiles?.full_name || '-',
+      'غذاها': order.order_items?.map(item => 
+        `${item.menu_items?.name} (${item.quantity})`
+      ).join(', ') || '-',
+      'رستوران‌ها': order.order_items?.map(item => 
+        item.menu_items?.restaurants?.name
+      ).filter((v, i, a) => a.indexOf(v) === i).join(', ') || '-',
+      'وضعیت': order.status === 'confirmed' ? 'تایید شده' : 
+               order.status === 'pending' ? 'در انتظار' : 
+               order.status === 'cancelled' ? 'لغو شده' : order.status,
+      'مبلغ (ریال)': Number(order.total_amount).toLocaleString('fa-IR'),
+      'یادداشت': order.notes || '-'
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'گزارش سفارشات');
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 12 }, // تاریخ
+      { wch: 8 },  // ساعت
+      { wch: 12 }, // کد پرسنلی
+      { wch: 20 }, // نام کاربر
+      { wch: 40 }, // غذاها
+      { wch: 20 }, // رستوران‌ها
+      { wch: 12 }, // وضعیت
+      { wch: 15 }, // مبلغ
+      { wch: 30 }, // یادداشت
+    ];
+
+    const fileName = `گزارش-سفارشات-${fromDate}-${toDate}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+
+    toast({
+      title: "موفق",
+      description: "فایل اکسل با موفقیت دانلود شد",
+    });
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
@@ -220,7 +266,13 @@ const Reports = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle>خلاصه</CardTitle>
+            <div className="flex items-center justify-between">
+              <CardTitle>خلاصه</CardTitle>
+              <Button onClick={exportToExcel} disabled={orders.length === 0}>
+                <Download className="ml-2 h-4 w-4" />
+                خروجی Excel
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
