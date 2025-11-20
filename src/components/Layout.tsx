@@ -1,7 +1,7 @@
 import React, { ReactNode } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { LogOut, User, Settings, Home, UtensilsCrossed } from 'lucide-react';
+import { LogOut, User, Settings, Home, UtensilsCrossed, FileText } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import logo from '@/assets/logo.png';
 
@@ -50,6 +50,17 @@ const Layout = ({ children }: LayoutProps) => {
                 <UtensilsCrossed className="ml-2 h-4 w-4" />
                 ثبت سفارش جدید
               </Button>
+
+              {(profile?.role === 'operator' || profile?.role === 'admin') && (
+                <Button
+                  variant={isActive('/reports') ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => navigate('/reports')}
+                >
+                  <FileText className="ml-2 h-4 w-4" />
+                  گزارشات
+                </Button>
+              )}
               
               {profile?.role === 'admin' && (
                 <Button
