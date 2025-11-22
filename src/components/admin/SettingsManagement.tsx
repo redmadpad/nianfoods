@@ -67,22 +67,32 @@ export const SettingsManagement = () => {
       // Save order deadline time
       const { error: timeError } = await supabase
         .from('settings')
-        .upsert({
-          key: 'order_deadline_time',
-          value: settings.order_deadline_time,
-          description: 'ساعت محدودیت سفارش‌گیری',
-        });
+        .upsert(
+          {
+            key: 'order_deadline_time',
+            value: settings.order_deadline_time,
+            description: 'ساعت محدودیت سفارش‌گیری',
+          },
+          {
+            onConflict: 'key',
+          }
+        );
 
       if (timeError) throw timeError;
 
       // Save max items per category
       const { error: itemsError } = await supabase
         .from('settings')
-        .upsert({
-          key: 'max_items_per_category',
-          value: settings.max_items_per_category,
-          description: 'حداکثر تعداد آیتم از هر دسته',
-        });
+        .upsert(
+          {
+            key: 'max_items_per_category',
+            value: settings.max_items_per_category,
+            description: 'حداکثر تعداد آیتم از هر دسته',
+          },
+          {
+            onConflict: 'key',
+          }
+        );
 
       if (itemsError) throw itemsError;
 
