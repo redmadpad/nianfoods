@@ -15,3 +15,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     autoRefreshToken: true,
   }
 });
+export async function getSupabaseAccessToken() {
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}
